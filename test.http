@@ -1,0 +1,9 @@
+POST http://localhost:8080/api/commerce/carts/{{$uuid}}/add-item
+content-type: application/json
+
+{
+"data" : {
+  "product_id" : "{{$uuid}}",
+  "item_id" : "{{$uuid}}"
+  }
+}
