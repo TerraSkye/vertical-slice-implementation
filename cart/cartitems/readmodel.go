@@ -21,9 +21,9 @@ type ReadModel struct {
 	Items       map[uuid.UUID]*CartItem
 }
 
-func (p *ReadModel) OnCartCleared(ev *cart.CartCleared) {
+func (p *ReadModel) OnCartCleared(_ *cart.CartCleared) {
 	p.TotalPrice = 0
-	p.Items = make(map[uuid.UUID]*CartItem, 0)
+	p.Items = make(map[uuid.UUID]*CartItem)
 }
 
 func (p *ReadModel) OnItemArchived(ev *cart.ItemArchived) {

@@ -40,7 +40,7 @@ func (s *service) AddItem(ctx context.Context, payload Payload) error {
 		Price:       995,
 		ProductId:   payload.ProductId,
 	}
-	if err := <-s.commandBus.Send(ctx, cmd); err != nil {
+	if err := s.commandBus.Send(ctx, cmd); err != nil {
 		return err
 	}
 

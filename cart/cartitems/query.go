@@ -38,7 +38,7 @@ func (q *QueryHandler) HandleQuery(ctx context.Context, qry Query) (ReadModel, e
 	)
 
 	for event := range events {
-		hydrate(event)
+		hydrate(event.Event)
 	}
 
 	return model, nil

@@ -1,16 +1,15 @@
 package handlers
 
 import (
-	"context"
-	domain "domain"
-	events "github.com/terraskye/vertical-slice-generator/gen/cart/events"
-	infrastructure "github.com/terraskye/vertical-slice-implementation/cart/infrastructure"
+	"github.com/terraskye/vertical-slice-implementation/cart"
+	"github.com/terraskye/vertical-slice-implementation/cart/domain"
+	"github.com/terraskye/vertical-slice-implementation/cart/events"
 )
 
 func init() {
-	infrastructure.RegisterCommand(func(aggregate *domain.Cart) func(ctx context.Context, cmd *events.CartSubmitted) error {
-		return func(ctx context.Context, cmd *events.CartSubmitted) error {
-			return aggregate.OnCartSubmitted(ctx, cmd)
+	cart.RegisterEvent(func(aggregate *domain.Cart) func(event *events.CartSubmitted) {
+		return func(event *events.CartSubmitted) {
+			aggregate.OnCartSubmitted(event)
 		}
 	})
 }

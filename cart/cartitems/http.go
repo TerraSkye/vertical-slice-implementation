@@ -13,11 +13,11 @@ import (
 )
 
 func MakeHttpHandler(r *mux.Router, bus *query.Bus) http.Handler {
-	queryHandler := infra.NewQueryGateway[Query, ReadModel](bus)
+	queryHandler := infra.NewQueryGateway[*Query, ReadModel](bus)
 	r.Methods("GET").Path("/api/commerce/carts/{id}/items").Handler(
 		kithttp.NewServer(
 			func(ctx context.Context, request interface{}) (interface{}, error) {
-				model, err := queryHandler.Query(ctx, request.(Query))
+				model, err := queryHandler.Query(ctx, request.(*Query))
 
 				if err != nil {
 					return nil, err
@@ -40,7 +40,7 @@ func decodeCreateRequest(ctx context.Context, r *http.Request) (any, error) {
 		return nil, fmt.Errorf("expected uuid but got %s", mux.Vars(r)["id"])
 	}
 
-	return Query{CartId: aggregateID}, nil
+	return &Query{CartId: aggregateID}, nil
 }
 
 func encodeResponse() kithttp.EncodeResponseFunc {

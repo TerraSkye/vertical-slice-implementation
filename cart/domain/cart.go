@@ -3,8 +3,10 @@ package domain
 import (
 	"context"
 	"errors"
+	"github.com/google/uuid"
 	"github.com/terraskye/vertical-slice-implementation/cart/domain/commands"
 	"github.com/terraskye/vertical-slice-implementation/cart/events"
+	"github.com/terraskye/vertical-slice-implementation/cqrs"
 	"github.com/terraskye/vertical-slice-implementation/infra"
 )
 
@@ -12,6 +14,12 @@ type Cart struct {
 	*infra.AggregateBase
 	submitted bool
 	quantity  int
+}
+
+func (c *Cart) New(uuid uuid.UUID) cqrs.Aggregate {
+	return &Cart{
+		AggregateBase: infra.NewAggregateBase(uuid),
+	}
 }
 
 func (c *Cart) ClearCart(ctx context.Context, cmd *commands.ClearCart) error {

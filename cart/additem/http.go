@@ -12,15 +12,15 @@ import (
 )
 
 func MakeHttpHandler(r *mux.Router, s Service) http.Handler {
-	r.Methods("POST").Path("/api/commerce/carts/{id}/add-item").Handler(
+	r.Methods("POST").Path("/api/commerce/carts/{id:[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}}/add-item").Handler(
 		kithttp.NewServer(
-			func(ctx context.Context, request interface{}) (interface{}, error) {
+			func(ctx context.Context, request interface{}) (interface{}, error) { // 400-422
 				if err := s.AddItem(ctx, request.(Payload)); err != nil {
 					return nil, err
 				}
 				return struct{}{}, nil
 			},
-			decodeCreateRequest,
+			decodeCreateRequest, // 400 - 404
 			infra.NoContent(),
 			kithttp.ServerErrorEncoder(func(ctx context.Context, err error, w http.ResponseWriter) {
 				// errors that can happen

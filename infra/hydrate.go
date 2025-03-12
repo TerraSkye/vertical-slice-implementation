@@ -1,9 +1,7 @@
 package infra
 
 import (
-	"fmt"
 	"github.com/terraskye/vertical-slice-implementation/cqrs"
-	"strings"
 )
 
 type HydrateHandler interface {
@@ -38,20 +36,12 @@ func (c genericHydrateHandler[T]) Apply(e cqrs.Event) {
 func Hydrate(handlers ...HydrateHandler) func(ev cqrs.Event) {
 	eventHandlers := make(map[string]HydrateHandler)
 
-	// StructName name returns struct name in format [type name].
-	// It ignores if the value is a pointer or not.
-	structName := func(v interface{}) string {
-		segments := strings.Split(fmt.Sprintf("%T", v), ".")
-
-		return segments[len(segments)-1]
-	}
-
 	for _, handler := range handlers {
-		eventHandlers[structName(handler.NewEvent())] = handler
+		eventHandlers[cqrs.TypeName(handler.NewEvent())] = handler
 	}
 
 	return func(ev cqrs.Event) {
-		eventName := structName(ev)
+		eventName := cqrs.TypeName(ev)
 		if handler, ok := eventHandlers[eventName]; ok {
 			handler.Apply(ev)
 		}

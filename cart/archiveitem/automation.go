@@ -36,7 +36,7 @@ func (a *automation) OnPriceChanged(ctx context.Context, ev *events.PriceChanged
 			AggregateId: cartWithProduct.AggregateId,
 			ProductId:   ev.ProductId,
 		}
-		if err := <-a.commandBus.Send(ctx, cmd); err != nil {
+		if err := a.commandBus.Send(ctx, cmd); err != nil {
 			return err
 		}
 

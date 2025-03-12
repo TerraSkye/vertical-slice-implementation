@@ -7,6 +7,9 @@ import (
 
 // Aggregate is the interface that all aggregates must implement.
 type Aggregate interface {
+	// New creates a new instance
+	New(uuid.UUID) Aggregate
+
 	// EntityID returns the unique identifier of the aggregate.
 	EntityID() uuid.UUID
 
@@ -17,11 +20,23 @@ type Aggregate interface {
 	SetAggregateVersion(version uint64)
 
 	// UncommittedEvents returns all the events that are currently uncommitted.
-	UncommittedEvents() []Event
+	UncommittedEvents() []Envelope
 
 	// ClearUncommittedEvents clears all uncommitted events from the aggregate.
 	ClearUncommittedEvents()
 
 	// AppendEvent appends a new event to the aggregate's event list.
-	AppendEvent(ctx context.Context, event Event)
+	AppendEvent(ctx context.Context, event Event, options ...EventOption)
+}
+
+type EventOption func(e *Envelope)
+
+func WithMetaData(ctx context.Context) EventOption {
+	return func(e *Envelope) {
+
+		e.Metadata = map[string]any{
+			//"user_id": claims.Subject,
+			//"url":     afctx.GetCurrentUrl(ctx).String(),
+		}
+	}
 }

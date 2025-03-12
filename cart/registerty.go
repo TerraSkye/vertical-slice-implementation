@@ -1,81 +1,148 @@
-package infrastructure
+package cart
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/terraskye/vertical-slice-implementation/cqrs"
 )
 
-// Generic command and event handler types
-type commandHandler[A any, T cqrs.Command] func(aggregate A) func(ctx context.Context, command T) error
-type eventHandler[A any, T cqrs.Event] func(aggregate A) func(event T)
+// CommandHandler defines a function type for handling commands.
+// It takes an aggregate and returns a function that processes the given command.
+type CommandHandler[A any, T any] func(aggregate A) func(ctx context.Context, command T) error
 
-// Command and event registries
-var commandRegistry = make(map[string]any)
-var eventRegistry = make(map[string]any)
+// EventHandler defines a function type for handling events.
+// It takes an aggregate and returns a function that processes the given event.
+type EventHandler[A any, T cqrs.Event] func(aggregate A) func(event T)
 
-var aggregateRegistry = make(map[string]any)
+// Command and event registries store registered handlers.
+var (
+	commandRegistry   = make(map[string]any)                           // Stores command handlers
+	eventRegistry     = make(map[string]any)                           // Stores event handlers
+	aggregateRegistry = make(map[string]func() any)                    // Stores aggregate constructors
+	eventDecoder      = make(map[string]func(raw []byte) (any, error)) // Stores event decoders
+)
 
-func AggregateForCommand(cmd cqrs.Command) (any, error) {
+// AggregateForCommand retrieves the appropriate aggregate for a given command.
+// It uses the command type to find and instantiate the corresponding aggregate.
+// Returns an error if no matching aggregate is found.
+func AggregateForCommand(cmd cqrs.Command) (cqrs.Aggregate, error) {
 	cmdType := cqrs.TypeName(cmd)
 
-	aggregate, ok := aggregateRegistry[cmdType]
-
+	aggHandler, ok := aggregateRegistry[cmdType]
 	if !ok {
-		return nil, errors.New("invalid command handler for: " + cmdType)
+		return nil, fmt.Errorf("invalid aggregate for: %s", cmdType)
 	}
-	return aggregate, nil
+
+	aggregate := aggHandler().(cqrs.Aggregate)
+	return aggregate.New(cmd.AggregateID()), nil
 }
 
-// RegisterCommand registers a command handler
-func RegisterCommand[A any, T cqrs.Command](handler commandHandler[A, T]) {
-	var cmd T // Get the command type
+// RegisterCommand registers a command handler for a given aggregate and command type.
+// It associates the command type with its handler and ensures the aggregate registry
+// can instantiate the appropriate aggregate.
+//
+// Example usage:
+//
+//	func init() {
+//	    RegisterCommand(func(aggregate *domain.Cart) func(ctx context.Context, command *commands.AddItem) error {
+//	        return aggregate.AddItem
+//	    })
+//	}
+func RegisterCommand[A cqrs.Aggregate, T cqrs.Command](handler CommandHandler[A, T]) {
+	var cmd T
 	cmdType := cqrs.TypeName(cmd)
-	commandRegistry[cmdType] = handler
-	var aggregate A
-	aggregateRegistry[cmdType] = aggregate
+
+	// Store a type-erased function that preserves the correct signature
+	commandRegistry[cmdType] = func(aggregate cqrs.Aggregate) func(context.Context, cqrs.Command) error {
+		return func(ctx context.Context, command cqrs.Command) error {
+			return handler(aggregate.(A))(ctx, command.(T)) // Explicit type assertion
+		}
+	}
+
+	// Ensure the aggregate registry stores an instance
+	aggregateRegistry[cmdType] = func() any {
+		var aggregate A
+		return aggregate
+	}
 }
 
-// DispatchCommand finds and executes a command handler
-func DispatchCommand[A any, T cqrs.Command](ctx context.Context, aggregate A, command T) error {
+// DispatchCommand executes the registered handler for a given command.
+// It retrieves the appropriate handler based on the command type and invokes it.
+// Returns an error if no handler is registered or if there's a type mismatch.
+func DispatchCommand[A cqrs.Aggregate, T cqrs.Command](ctx context.Context, aggregate A, command T) error {
 	cmdType := cqrs.TypeName(command)
+
 	handlerRaw, exists := commandRegistry[cmdType]
 	if !exists {
-		return errors.New("no handler registered for command: " + cmdType)
+		return fmt.Errorf("no handler registered for command: %s", cmdType)
 	}
 
-	// Type assertion to expected function signature
-	handler, ok := handlerRaw.(commandHandler[A, T])
+	// Ensure type safety
+	handlerWrapper, ok := handlerRaw.(func(cqrs.Aggregate) func(context.Context, cqrs.Command) error)
 	if !ok {
-		return errors.New("invalid command handler type for: " + cmdType)
+		return fmt.Errorf("invalid command handler type for: %s", cmdType)
 	}
 
-	// Execute the command
-	return handler(aggregate)(ctx, command)
+	// Execute the command handler
+	return handlerWrapper(aggregate)(ctx, command)
 }
 
-// DispatchEvent finds and executes an event handler
-func DispatchEvent[A any, T cqrs.Event](aggregate A, event T) error {
+// DispatchEvent executes the registered handler for a given event.
+// It retrieves the appropriate handler based on the event type and invokes it.
+// Returns an error if no handler is registered or if there's a type mismatch.
+func DispatchEvent[A cqrs.Aggregate, T cqrs.Event](aggregate A, event T) error {
 	evtType := cqrs.TypeName(event)
 	handlerRaw, exists := eventRegistry[evtType]
 	if !exists {
 		return errors.New("no handler registered for event: " + evtType)
 	}
 
-	// Type assertion to expected function signature
-	handler, ok := handlerRaw.(eventHandler[A, T])
+	// Ensure type safety
+	handler, ok := handlerRaw.(EventHandler[A, T])
 	if !ok {
 		return errors.New("invalid event handler type for: " + evtType)
 	}
 
-	// Execute the event
+	// Execute the event handler
 	handler(aggregate)(event)
 	return nil
 }
 
-// RegisterEvent registers an event handler
-func RegisterEvent[A any, T cqrs.Event](handler eventHandler[A, T]) {
-	var evt T // Get the event type
+// RegisterEvent registers an event handler for a given aggregate and event type.
+// It associates the event type with its handler and sets up a decoder for the event.
+//
+// Example usage:
+//
+//	func init() {
+//	    RegisterEvent(func(aggregate *domain.Cart) func(event *events.CartCleared) {
+//	        return aggregate.OnCartCleared
+//	    })
+//	}
+func RegisterEvent[A cqrs.Aggregate, T cqrs.Event](handler EventHandler[A, T]) {
+	var evt T
 	evtType := cqrs.TypeName(evt)
 	eventRegistry[evtType] = handler
+
+	// Store an event decoder
+	eventDecoder[evtType] = func(raw []byte) (any, error) {
+		var evt T
+		if err := json.Unmarshal(raw, &evt); err != nil {
+			return nil, err
+		}
+		return evt, nil
+	}
+}
+
+// DecodeEvent decodes a raw event payload into its respective event type.
+// It uses the event type to find the appropriate decoder and unmarshals the raw data.
+// Returns an error if decoding fails or if no decoder is registered for the event type.
+func DecodeEvent(evtType string, raw []byte) (cqrs.Event, error) {
+	handler := eventDecoder[evtType]
+	event, err := handler(raw)
+	if err != nil {
+		return nil, err
+	}
+	return event.(cqrs.Event), nil
 }

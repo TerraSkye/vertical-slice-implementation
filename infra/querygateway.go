@@ -14,7 +14,7 @@ func NewQueryGateway[T query.Query, R any](bus *query.Bus) GenericQueryGateway[T
 }
 
 func (h *GenericQueryGateway[T, R]) Query(ctx context.Context, qry T) (Res[R], error) {
-	result, err := h.bus.Query(qry)
+	result, err := h.bus.Query(ctx, qry)
 
 	var envelope Res[R]
 
@@ -35,7 +35,7 @@ func (h *GenericQueryGateway[T, R]) Query(ctx context.Context, qry T) (Res[R], e
 
 func (h *GenericQueryGateway[T, R]) IteratorQuery(ctx context.Context, qry T) (<-chan *R, error) {
 
-	result, err := h.bus.IteratorQuery(qry)
+	result, err := h.bus.IteratorQuery(ctx, qry)
 
 	if err != nil {
 		return nil, err

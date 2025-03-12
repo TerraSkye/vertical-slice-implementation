@@ -8,25 +8,25 @@ import (
 	"github.com/terraskye/vertical-slice-implementation/cart/archiveitem"
 	"github.com/terraskye/vertical-slice-implementation/cart/cartitems"
 	"github.com/terraskye/vertical-slice-implementation/cart/cartwithproducts"
-	"github.com/terraskye/vertical-slice-implementation/cart/domain"
 	_ "github.com/terraskye/vertical-slice-implementation/cart/handlers"
-	"github.com/terraskye/vertical-slice-implementation/cart/infrastructure"
-	_ "github.com/terraskye/vertical-slice-implementation/cart/infrastructure"
 	"github.com/terraskye/vertical-slice-implementation/cqrs"
 	"github.com/terraskye/vertical-slice-implementation/infra"
 	"net/http"
 )
-
-//TIP To run your code, right-click the code and select <b>Run</b>. Alternatively, click
-// the <icon src="AllIcons.Actions.Execute"/> icon in the gutter and select the <b>Run</b> menu item from here.
 
 func main() {
 
 	var store cqrs.EventStore
 	var router = mux.NewRouter()
 
+	var eventBus infra.EventBus
+
 	{
-		store = infra.NewMemoryStore()
+		eventBus = infra.NewEventBus()
+	}
+
+	{
+		store = infra.NewMemoryStore(eventBus)
 	}
 
 	var queryBus *query.Bus
@@ -35,19 +35,11 @@ func main() {
 		queryBus = query.NewBus()
 	}
 
-	var eventBus infra.EventBus
-
-	{
-
-	}
-
 	var commandBus infra.CommandBus
 
 	{
-
-		commandBus.AddHandler(infrastructure.NewCommandHandler[domain.Cart](store).Handle)
-		commandBus.AddHandler(infrastructure.NewCommandHandler[domain.Pricing](store).Handle)
-		commandBus.AddHandler(infrastructure.NewCommandHandler[domain.Inventory](store).Handle)
+		commandBus = infra.NewCommandBus(20)
+		commandBus.AddHandler(infra.NewCommandHandler(store).Handle)
 	}
 
 	{
@@ -70,8 +62,9 @@ func main() {
 
 	{
 		queryHandler := cartitems.NewQueryHandler(store)
+
 		_ = queryHandler
-		//queryBus.Handlers(queryHandler)
+		//queryBus.Handlers(queryHandler.)
 		//TODO register on the query bus.
 		cartitems.MakeHttpHandler(router, queryBus)
 	}
@@ -100,8 +93,8 @@ func main() {
 	errs := make(chan error, 2)
 
 	go func() {
-		httpAddr := ":8080"
-		fmt.Println("serving on 0.0.0.0:8080")
+		httpAddr := ":9090"
+		fmt.Println("serving on 0.0.0.0:9090")
 		errs <- http.ListenAndServe(httpAddr, nil)
 	}()
 
