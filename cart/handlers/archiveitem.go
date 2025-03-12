@@ -8,9 +8,9 @@ import (
 )
 
 func init() {
-	infrastructure.RegisterCommand(func(aggregate *domain.Cart) func(ctx context.Context, cmd *commands.AddItem) error {
-		return func(ctx context.Context, cmd *commands.AddItem) error {
-			return aggregate.AddItem(ctx, cmd)
+	infrastructure.RegisterCommand(func(aggregate *domain.Cart) func(ctx context.Context, cmd *commands.ArchiveItem) error {
+		return func(ctx context.Context, cmd *commands.ArchiveItem) error {
+			return aggregate.ArchiveItem(ctx, cmd)
 		}
 	})
 }

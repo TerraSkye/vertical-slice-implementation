@@ -16,20 +16,24 @@ var eventRegistry = make(map[string]any)
 
 var aggregateRegistry = make(map[string]any)
 
+func AggregateForCommand(cmd cqrs.Command) (any, error) {
+	cmdType := cqrs.TypeName(cmd)
+
+	aggregate, ok := aggregateRegistry[cmdType]
+
+	if !ok {
+		return nil, errors.New("invalid command handler for: " + cmdType)
+	}
+	return aggregate, nil
+}
+
 // RegisterCommand registers a command handler
 func RegisterCommand[A any, T cqrs.Command](handler commandHandler[A, T]) {
 	var cmd T // Get the command type
 	cmdType := cqrs.TypeName(cmd)
 	commandRegistry[cmdType] = handler
 	var aggregate A
-	aggregateRegistry[cqrs.TypeName(aggregate)] = aggregate
-}
-
-// RegisterEvent registers an event handler
-func RegisterEvent[A any, T cqrs.Event](handler eventHandler[A, T]) {
-	var evt T // Get the event type
-	evtType := cqrs.TypeName(evt)
-	eventRegistry[evtType] = handler
+	aggregateRegistry[cmdType] = aggregate
 }
 
 // DispatchCommand finds and executes a command handler
@@ -67,4 +71,11 @@ func DispatchEvent[A any, T cqrs.Event](aggregate A, event T) error {
 	// Execute the event
 	handler(aggregate)(event)
 	return nil
+}
+
+// RegisterEvent registers an event handler
+func RegisterEvent[A any, T cqrs.Event](handler eventHandler[A, T]) {
+	var evt T // Get the event type
+	evtType := cqrs.TypeName(evt)
+	eventRegistry[evtType] = handler
 }
