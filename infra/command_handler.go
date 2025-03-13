@@ -21,13 +21,11 @@ func NewCommandHandler(store cqrs.EventStore) *CommandHandler {
 
 func (h *CommandHandler) Handle(ctx context.Context, command cqrs.Command) error {
 
-	aggregateType, err := cart.AggregateForCommand(command)
+	aggregate, err := cart.AggregateForCommand(command)
 
 	if err != nil {
 		return err
 	}
-
-	aggregate := aggregateType.New(command.AggregateID())
 
 	events, err := h.store.LoadFrom(ctx, command.AggregateID(), 0)
 

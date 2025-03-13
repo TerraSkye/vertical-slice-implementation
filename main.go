@@ -62,8 +62,9 @@ func main() {
 
 	{
 		queryHandler := cartitems.NewQueryHandler(store)
-
+		//queryHandler.HandleQuery()
 		_ = queryHandler
+		queryBus.Handlers()
 		//queryBus.Handlers(queryHandler.)
 		//TODO register on the query bus.
 		cartitems.MakeHttpHandler(router, queryBus)

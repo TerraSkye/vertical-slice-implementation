@@ -41,6 +41,7 @@ func init() {
 			defer span.End()
 			err := aggregate.ArchiveItem(ctx, cmd)
 			if err != nil {
+				//
 				span.RecordError(err)
 			} else {
 

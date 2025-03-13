@@ -7,8 +7,6 @@ import (
 
 // Aggregate is the interface that all aggregates must implement.
 type Aggregate interface {
-	// New creates a new instance
-	New(uuid.UUID) Aggregate
 
 	// EntityID returns the unique identifier of the aggregate.
 	EntityID() uuid.UUID

@@ -3,7 +3,6 @@ package cartitems
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -14,7 +13,8 @@ import (
 
 func MakeHttpHandler(r *mux.Router, bus *query.Bus) http.Handler {
 	queryHandler := infra.NewQueryGateway[*Query, ReadModel](bus)
-	r.Methods("GET").Path("/api/commerce/carts/{id}/items").Handler(
+
+	r.Methods("GET").Path("/api/commerce/carts/{id:[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}}/items").Handler(
 		kithttp.NewServer(
 			func(ctx context.Context, request interface{}) (interface{}, error) {
 				model, err := queryHandler.Query(ctx, request.(*Query))
@@ -35,12 +35,7 @@ func MakeHttpHandler(r *mux.Router, bus *query.Bus) http.Handler {
 }
 
 func decodeCreateRequest(ctx context.Context, r *http.Request) (any, error) {
-	aggregateID, err := uuid.Parse(mux.Vars(r)["id"])
-	if err != nil {
-		return nil, fmt.Errorf("expected uuid but got %s", mux.Vars(r)["id"])
-	}
-
-	return &Query{CartId: aggregateID}, nil
+	return &Query{CartId: uuid.MustParse(mux.Vars(r)["id"])}, nil
 }
 
 func encodeResponse() kithttp.EncodeResponseFunc {
