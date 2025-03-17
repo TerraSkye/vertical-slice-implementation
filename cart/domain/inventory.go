@@ -12,7 +12,7 @@ type Inventory struct {
 }
 
 func (i *Inventory) ChangeInventory(ctx context.Context, cmd *commands.ChangeInventory) error {
-	i.AppendEvent(ctx, &events.InventoryChanged{
+	i.AppendEvent(&events.InventoryChanged{
 
 		Inventory: cmd.Inventory,
 		ProductId: cmd.ProductId,

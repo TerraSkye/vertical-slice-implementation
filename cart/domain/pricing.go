@@ -12,7 +12,7 @@ type Pricing struct {
 }
 
 func (p *Pricing) ChangePrice(ctx context.Context, cmd *commands.ChangePrice) error {
-	p.AppendEvent(ctx, &events.PriceChanged{
+	p.AppendEvent(&events.PriceChanged{
 
 		NewPrice:  cmd.NewPrice,
 		OldPrice:  cmd.OldPrice,

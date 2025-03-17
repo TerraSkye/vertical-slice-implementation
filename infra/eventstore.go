@@ -5,16 +5,26 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/terraskye/vertical-slice-implementation/cqrs"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"sync"
 )
 
 type MemoryStore struct {
+	tracer trace.Tracer
 	mu     sync.RWMutex
 	bus    EventBus
 	events map[uuid.UUID][]*cqrs.Envelope
 }
 
 func (m *MemoryStore) Save(ctx context.Context, events []cqrs.Envelope, originalVersion uint64) error {
+	ctx, span := m.tracer.Start(ctx, "MemoryStore.Save",
+		trace.WithAttributes(attribute.Int("event.count", len(events))),
+	)
+	defer span.End()
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -26,19 +36,41 @@ func (m *MemoryStore) Save(ctx context.Context, events []cqrs.Envelope, original
 		currentVersion := uint64(len(m.events[event.Event.AggregateID()]))
 
 		if currentVersion != originalVersion {
-			return fmt.Errorf("version did not match")
+			err := fmt.Errorf("version mismatch: expected %d, got %d", originalVersion, currentVersion)
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+			return err
 		}
 		m.events[event.Event.AggregateID()] = append(m.events[event.Event.AggregateID()], &events[i])
+		span.AddEvent("Stored event",
+			trace.WithAttributes(
+				attribute.String("event.aggregate_id", event.Event.AggregateID().String()),
+				attribute.String("event.type", cqrs.TypeName(event.Event)),
+				attribute.Int("version", int(originalVersion)),
+			),
+		)
 		originalVersion++
 
 	}
 
 	for _, event := range events {
+
+		eventCtx, eventSpan := m.tracer.Start(ctx, "MemoryStore.PublishEvent",
+			trace.WithAttributes(
+				attribute.String("event.aggregate_id", event.Event.AggregateID().String()),
+				attribute.String("event.type", cqrs.TypeName(event.Event)),
+			),
+		)
+
 		//TODO populate the context with the event envelope
-		if err := m.bus.Dispatch(ctx, event.Event); err != nil {
-			//TODO now  we have an issue, where we recorded it happening but we cannot publish the events.
+		if err := m.bus.Dispatch(eventCtx, event.Event); err != nil {
+			eventSpan.RecordError(err)
+			eventSpan.SetStatus(codes.Error, err.Error())
+			eventSpan.End()
 			return err
 		}
+
+		eventSpan.End()
 	}
 
 	return nil
@@ -46,6 +78,11 @@ func (m *MemoryStore) Save(ctx context.Context, events []cqrs.Envelope, original
 }
 
 func (m *MemoryStore) Load(ctx context.Context, u uuid.UUID) (<-chan *cqrs.Envelope, error) {
+	ctx, span := m.tracer.Start(ctx, "MemoryStore.Load",
+		trace.WithAttributes(attribute.String("aggregate_id", u.String())),
+	)
+	defer span.End()
+
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -67,6 +104,14 @@ func (m *MemoryStore) Load(ctx context.Context, u uuid.UUID) (<-chan *cqrs.Envel
 }
 
 func (m *MemoryStore) LoadFrom(ctx context.Context, id uuid.UUID, version int) (<-chan *cqrs.Envelope, error) {
+	ctx, span := m.tracer.Start(ctx, "MemoryStore.LoadFrom",
+		trace.WithAttributes(
+			attribute.String("aggregate_id", id.String()),
+			attribute.Int("start_version", version),
+		),
+	)
+	defer span.End()
+
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -77,6 +122,8 @@ func (m *MemoryStore) LoadFrom(ctx context.Context, id uuid.UUID, version int) (
 			for _, event := range events[version:] {
 				select {
 				case <-ctx.Done():
+					span.RecordError(ctx.Err())
+					span.SetStatus(codes.Error, ctx.Err().Error())
 					return
 				case out <- event:
 				}
@@ -97,6 +144,7 @@ func (m *MemoryStore) Close() error {
 func NewMemoryStore(bus EventBus) cqrs.EventStore {
 	return &MemoryStore{
 		events: make(map[uuid.UUID][]*cqrs.Envelope),
+		tracer: otel.Tracer("event-store"),
 		bus:    bus,
 	}
 }

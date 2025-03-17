@@ -15,7 +15,7 @@ type Cart struct {
 }
 
 func (c *Cart) ClearCart(ctx context.Context, cmd *commands.ClearCart) error {
-	c.AppendEvent(ctx, &events.CartCleared{
+	c.AppendEvent(&events.CartCleared{
 		AggregateId: cmd.AggregateId,
 	})
 	return nil
@@ -30,7 +30,7 @@ func (c *Cart) AddItem(ctx context.Context, cmd *commands.AddItem) error {
 		return errors.New("cannot add item to cart")
 	}
 
-	c.AppendEvent(ctx, &events.ItemAdded{
+	c.AppendEvent(&events.ItemAdded{
 		AggregateId: cmd.AggregateId,
 		Description: cmd.Description,
 		Image:       cmd.Image,
@@ -38,7 +38,7 @@ func (c *Cart) AddItem(ctx context.Context, cmd *commands.AddItem) error {
 		Price:       cmd.Price,
 		ProductId:   cmd.ProductId,
 	})
-	c.AppendEvent(ctx, &events.CartCreated{
+	c.AppendEvent(&events.CartCreated{
 		AggregateId: cmd.AggregateId,
 	})
 	return nil
@@ -50,7 +50,7 @@ func (c *Cart) OnItemAdded(cmd *events.ItemAdded) {
 func (c *Cart) OnCartCreated(ev *events.CartCreated) {}
 
 func (c *Cart) ArchiveItem(ctx context.Context, cmd *commands.ArchiveItem) error {
-	c.AppendEvent(ctx, &events.ItemArchived{
+	c.AppendEvent(&events.ItemArchived{
 		AggregateId: cmd.AggregateId,
 		ItemId:      cmd.ProductId,
 	})
@@ -61,7 +61,7 @@ func (c *Cart) OnItemArchived(cmd *events.ItemArchived) {
 }
 
 func (c *Cart) SubmitCart(ctx context.Context, cmd *commands.SubmitCart) error {
-	c.AppendEvent(ctx, &events.CartSubmitted{
+	c.AppendEvent(&events.CartSubmitted{
 		AggregateId:     cmd.AggregateId,
 		OrderedProducts: cmd.OrderedProducts,
 		//TotalPrice:      cmd.TotalPrice,
@@ -73,7 +73,7 @@ func (c *Cart) OnCartSubmitted(cmd *events.CartSubmitted) {
 }
 
 func (c *Cart) RemoveItem(ctx context.Context, cmd *commands.RemoveItem) error {
-	c.AppendEvent(ctx, &events.ItemRemoved{
+	c.AppendEvent(&events.ItemRemoved{
 		AggregateId: cmd.AggregateId,
 		ItemId:      cmd.ItemId,
 	})

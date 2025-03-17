@@ -3,6 +3,9 @@ package infra
 import (
 	"context"
 	"github.com/terraskye/vertical-slice-implementation/cqrs"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"sync"
 )
 
@@ -18,6 +21,7 @@ type CommandWithCtx struct {
 }
 
 type commandBus struct {
+	tracer   trace.Tracer
 	handlers []func(ctx context.Context, command cqrs.Command) error
 	queue    chan CommandWithCtx
 	sync.RWMutex
@@ -25,7 +29,8 @@ type commandBus struct {
 
 func NewCommandBus(bufferSize int) CommandBus {
 	bus := &commandBus{
-		queue: make(chan CommandWithCtx, bufferSize),
+		queue:  make(chan CommandWithCtx, bufferSize),
+		tracer: otel.Tracer("command-bus"),
 	}
 
 	go bus.start()
@@ -34,6 +39,15 @@ func NewCommandBus(bufferSize int) CommandBus {
 
 func (b *commandBus) Send(ctx context.Context, cmd cqrs.Command) error {
 	responseCh := make(chan error, 1)
+
+	// Start tracing
+	ctx, span := b.tracer.Start(ctx, "CommandBus.Send",
+		trace.WithAttributes(
+			attribute.String("command.type", cqrs.TypeName(cmd)),
+			attribute.String("aggregate.id", cmd.AggregateID().String()),
+		),
+	)
+	defer span.End()
 
 	// Enqueue the command with the response channel
 	select {

@@ -19,7 +19,7 @@ func init() {
 		tracer := otel.Tracer("cart-service")
 
 		return func(ctx context.Context, cmd *commands.ArchiveItem) error {
-			ctx, span := tracer.Start(ctx, "Cart::ArchiveItem",
+			ctx, span := tracer.Start(ctx, "Cart:ArchiveItem",
 				trace.WithAttributes(
 					// Add meta-related attributes
 					attribute.String("cqrs.aggregate_id", cmd.AggregateId.String()),

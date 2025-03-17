@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/io-da/query"
@@ -16,12 +17,15 @@ import (
 
 func main() {
 
+	setupOTelSDK(context.Background())
+
 	var store cqrs.EventStore
 	var router = mux.NewRouter()
 
 	var eventBus infra.EventBus
 
 	{
+		// the bus is in memory
 		eventBus = infra.NewEventBus()
 	}
 
@@ -32,6 +36,7 @@ func main() {
 	var queryBus *query.Bus
 
 	{
+		// the query bus
 		queryBus = query.NewBus()
 	}
 
@@ -39,6 +44,7 @@ func main() {
 
 	{
 		commandBus = infra.NewCommandBus(20)
+		//a command handler per aggregate type?
 		commandBus.AddHandler(infra.NewCommandHandler(store).Handle)
 	}
 

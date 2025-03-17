@@ -24,7 +24,7 @@ type Aggregate interface {
 	ClearUncommittedEvents()
 
 	// AppendEvent appends a new event to the aggregate's event list.
-	AppendEvent(ctx context.Context, event Event, options ...EventOption)
+	AppendEvent(event Event, options ...EventOption)
 }
 
 type EventOption func(e *Envelope)

@@ -1,7 +1,6 @@
 package infra
 
 import (
-	"context"
 	"github.com/google/uuid"
 	"github.com/terraskye/vertical-slice-implementation/cqrs"
 )
@@ -48,7 +47,7 @@ func (a *AggregateBase) ClearUncommittedEvents() {
 }
 
 // AppendEvent appends an event for later retrieval by Events().
-func (a *AggregateBase) AppendEvent(ctx context.Context, event cqrs.Event, options ...cqrs.EventOption) {
+func (a *AggregateBase) AppendEvent(event cqrs.Event, options ...cqrs.EventOption) {
 
 	envelope := cqrs.Envelope{
 		UUID:     uuid.New(),
