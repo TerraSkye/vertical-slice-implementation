@@ -79,13 +79,13 @@ func main() {
 	{
 		projector := cartwithproducts.NewProjector()
 
-		infra.NewEventGroupProcessor(
+		eventBus.SubscribeToGroup(infra.NewEventGroupProcessor("cartwithproducts",
 			infra.NewGroupEventHandler(projector.OnItemAdded),
 			infra.NewGroupEventHandler(projector.OnItemArchived),
 			infra.NewGroupEventHandler(projector.OnCartCreated),
 			infra.NewGroupEventHandler(projector.OnItemArchived),
 			infra.NewGroupEventHandler(projector.OnItemRemoved),
-		)
+		))
 
 		//eventBus.Subscribe()
 

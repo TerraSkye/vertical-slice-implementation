@@ -7,6 +7,7 @@ import (
 	"github.com/terraskye/vertical-slice-implementation/infra"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"os"
 
@@ -41,13 +42,13 @@ func init() {
 			defer span.End()
 			err := aggregate.ArchiveItem(ctx, cmd)
 			if err != nil {
-				//
 				span.RecordError(err)
+				span.SetStatus(codes.Error, err.Error())
 			} else {
-
+				span.SetStatus(codes.Ok, "")
 			}
 
-			return nil
+			return err
 		}
 	})
 }

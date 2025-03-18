@@ -3,6 +3,7 @@ package infra
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"time"
 )
 
@@ -176,4 +177,39 @@ func MustExtractCommand(ctx context.Context) string {
 		return command
 	}
 	return ""
+}
+
+// WithAggregateVersion adds the aggregate version to the context.
+func WithAggregateVersion(ctx context.Context, version uint64) context.Context {
+	return context.WithValue(ctx, AggregateVersionKey, fmt.Sprintf("%d", version))
+}
+
+// WithCausationId adds the causation ID to the context.
+func WithCausationId(ctx context.Context, causationId string) context.Context {
+	return context.WithValue(ctx, CausationIdKey, causationId)
+}
+
+// WithCorrelationId adds the correlation ID to the context.
+func WithCorrelationId(ctx context.Context, correlationId string) context.Context {
+	return context.WithValue(ctx, CorrelationIdKey, correlationId)
+}
+
+// WithAggregateUUID adds the aggregate UUID to the context.
+func WithAggregateUUID(ctx context.Context, aggregateUUID uuid.UUID) context.Context {
+	return context.WithValue(ctx, AggregateUUIDKey, aggregateUUID.String())
+}
+
+// WithApplication adds the application name to the context.
+func WithApplication(ctx context.Context, application string) context.Context {
+	return context.WithValue(ctx, ApplicationKey, application)
+}
+
+// WithCommand adds the command name to the context.
+func WithCommand(ctx context.Context, command string) context.Context {
+	return context.WithValue(ctx, CommandKey, command)
+}
+
+// WithHandler adds the handler name to the context.
+func WithHandler(ctx context.Context, handler string) context.Context {
+	return context.WithValue(ctx, HandlerKey, handler)
 }

@@ -3,6 +3,7 @@ package infra
 import (
 	"github.com/google/uuid"
 	"github.com/terraskye/vertical-slice-implementation/cqrs"
+	"time"
 )
 
 type AggregateBase struct {
@@ -50,10 +51,11 @@ func (a *AggregateBase) ClearUncommittedEvents() {
 func (a *AggregateBase) AppendEvent(event cqrs.Event, options ...cqrs.EventOption) {
 
 	envelope := cqrs.Envelope{
-		UUID:     uuid.New(),
-		Metadata: make(map[string]any),
-		Event:    event,
-		Version:  a.AggregateVersion() + uint64(len(a.events)) + 1,
+		UUID:       uuid.New(),
+		Metadata:   make(map[string]any),
+		Event:      event,
+		Version:    a.AggregateVersion() + uint64(len(a.events)) + 1,
+		OccurredAt: time.Now(),
 	}
 
 	for _, option := range options {

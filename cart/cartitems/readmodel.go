@@ -1,6 +1,7 @@
 package cartitems
 
 import (
+	"context"
 	"github.com/google/uuid"
 	cart "github.com/terraskye/vertical-slice-implementation/cart/events"
 	"github.com/terraskye/vertical-slice-implementation/infra"
@@ -21,21 +22,21 @@ type ReadModel struct {
 	Items       map[uuid.UUID]*CartItem
 }
 
-func (p *ReadModel) OnCartCleared(_ *cart.CartCleared) {
+func (p *ReadModel) OnCartCleared(ctx context.Context, _ *cart.CartCleared) {
 	p.TotalPrice = 0
 	p.Items = make(map[uuid.UUID]*CartItem)
 }
 
-func (p *ReadModel) OnItemArchived(ev *cart.ItemArchived) {
+func (p *ReadModel) OnItemArchived(ctx context.Context, ev *cart.ItemArchived) {
 	p.TotalPrice -= p.Items[ev.ItemId].Price
 	delete(p.Items, ev.ItemId)
 }
 
-func (p *ReadModel) OnCartCreated(ev *cart.CartCreated) {
+func (p *ReadModel) OnCartCreated(ctx context.Context, ev *cart.CartCreated) {
 	p.AggregateId = ev.AggregateId
 }
 
-func (p *ReadModel) OnItemAdded(ev *cart.ItemAdded) {
+func (p *ReadModel) OnItemAdded(ctx context.Context, ev *cart.ItemAdded) {
 	p.Items[ev.ItemId] = &CartItem{
 		Description: ev.Description,
 		Image:       ev.Image,
@@ -47,7 +48,7 @@ func (p *ReadModel) OnItemAdded(ev *cart.ItemAdded) {
 	p.TotalPrice += ev.Price
 }
 
-func (p *ReadModel) OnItemRemoved(ev *cart.ItemRemoved) {
+func (p *ReadModel) OnItemRemoved(ctx context.Context, ev *cart.ItemRemoved) {
 	p.TotalPrice -= p.Items[ev.ItemId].Price
 	delete(p.Items, ev.ItemId)
 }

@@ -68,7 +68,7 @@ func (h *CommandHandler) Handle(ctx context.Context, command cqrs.Command) error
 	}
 	aggregate.SetAggregateVersion(version)
 
-	if err := cart.DispatchCommand(ctx, aggregate, command); err != nil {
+	if err := cart.DispatchCommand(WithAggregateUUID(WithAggregateVersion(ctx, version), command.AggregateID()), aggregate, command); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 

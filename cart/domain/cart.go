@@ -11,6 +11,7 @@ import (
 type Cart struct {
 	*infra.AggregateBase
 	submitted bool
+	created   bool
 	quantity  int
 }
 
@@ -30,6 +31,12 @@ func (c *Cart) AddItem(ctx context.Context, cmd *commands.AddItem) error {
 		return errors.New("cannot add item to cart")
 	}
 
+	if !c.created {
+		c.AppendEvent(&events.CartCreated{
+			AggregateId: cmd.AggregateId,
+		})
+	}
+
 	c.AppendEvent(&events.ItemAdded{
 		AggregateId: cmd.AggregateId,
 		Description: cmd.Description,
@@ -38,9 +45,7 @@ func (c *Cart) AddItem(ctx context.Context, cmd *commands.AddItem) error {
 		Price:       cmd.Price,
 		ProductId:   cmd.ProductId,
 	})
-	c.AppendEvent(&events.CartCreated{
-		AggregateId: cmd.AggregateId,
-	})
+
 	return nil
 }
 func (c *Cart) OnItemAdded(cmd *events.ItemAdded) {

@@ -3,6 +3,7 @@ package infra
 import (
 	"context"
 	"github.com/terraskye/vertical-slice-implementation/cqrs"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -12,16 +13,23 @@ import (
 type EventBus interface {
 	Dispatch(ctx context.Context, event cqrs.Event) error
 	Subscribe(handler EventHandler)
+	SubscribeToGroup(handler *EventGroupProcessor)
 }
 
 type eventBus struct {
-	tracer   trace.Tracer
-	handlers []EventHandler
+	tracer        trace.Tracer
+	handlers      []EventHandler
+	groupHandlers map[string][]GroupEventHandler
+	totalHandlers uint64
 	sync.RWMutex
 }
 
 func NewEventBus() EventBus {
-	return &eventBus{}
+	return &eventBus{
+		tracer:        otel.Tracer("eventbus"),
+		groupHandlers: make(map[string][]GroupEventHandler),
+		handlers:      make([]EventHandler, 0),
+	}
 }
 
 // Dispatch sends the event to all subscribed handlers concurrently.
@@ -49,13 +57,15 @@ func (b *eventBus) Dispatch(ctx context.Context, event cqrs.Event) error {
 			wg.Add(1)
 			go func(h EventHandler) {
 				defer wg.Done()
-
+				h.HandlerName()
 				// Create a new span for the handler, linking it to Dispatch
 				handlerCtx, handlerSpan := b.tracer.Start(ctx, "EventBus.HandleEvent",
 					trace.WithAttributes(
+						attribute.String("handler.name", h.HandlerName()),
 						attribute.String("event.aggregate_id", event.AggregateID().String()),
 						attribute.String("event.type", cqrs.TypeName(event)),
 					),
+					trace.WithLinks(trace.LinkFromContext(ctx)),
 				)
 
 				if err := h.Handle(handlerCtx, event); err != nil {
@@ -66,6 +76,36 @@ func (b *eventBus) Dispatch(ctx context.Context, event cqrs.Event) error {
 
 				handlerSpan.End()
 			}(handler)
+		}
+	}
+
+	for handlerName, group := range b.groupHandlers {
+
+		for _, handler := range group {
+			expectedEvent := handler.NewEvent()
+			if cqrs.TypeName(expectedEvent) == cqrs.TypeName(event) {
+				wg.Add(1)
+				go func(h GroupEventHandler) {
+					defer wg.Done()
+
+					// Create a new span for the handler, linking it to Dispatch
+					handlerCtx, handlerSpan := b.tracer.Start(ctx, "EventBus.HandleEvent",
+						trace.WithAttributes(
+							attribute.String("handler.name", handlerName),
+							attribute.String("event.aggregate_id", event.AggregateID().String()),
+							attribute.String("event.type", cqrs.TypeName(event)),
+						),
+						trace.WithLinks(trace.LinkFromContext(ctx)),
+					)
+
+					if err := h.Handle(handlerCtx, event); err != nil {
+						handlerSpan.RecordError(err)
+						handlerSpan.SetStatus(codes.Error, err.Error())
+						errChan <- err
+					}
+					handlerSpan.End()
+				}(handler)
+			}
 		}
 	}
 
@@ -86,4 +126,11 @@ func (b *eventBus) Subscribe(handler EventHandler) {
 	b.Lock()
 	defer b.Unlock()
 	b.handlers = append(b.handlers, handler)
+}
+
+func (b *eventBus) SubscribeToGroup(handler *EventGroupProcessor) {
+	b.Lock()
+	defer b.Unlock()
+	b.groupHandlers[handler.groupName] = handler.groupEventHandlers
+	b.totalHandlers += uint64(len(handler.groupEventHandlers))
 }

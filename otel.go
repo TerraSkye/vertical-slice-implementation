@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.30.0"
 	"google.golang.org/grpc"
 	"time"
 
@@ -101,10 +103,24 @@ func newTracerProvider() (*trace.TracerProvider, error) {
 		return nil, err
 	}
 
+	resources, err := resource.New(context.Background(),
+		resource.WithAttributes(
+			semconv.ServiceNameKey.String("cqrs"),
+			semconv.ServiceVersionKey.String("alpha"),
+		),
+		resource.WithTelemetrySDK(),
+		// Bring your own external Detector implementation
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
 	tracerProvider := trace.NewTracerProvider(
 		trace.WithBatcher(traceExporter,
 			// Default is 5s. Set to 1s for demonstrative purposes.
 			trace.WithBatchTimeout(time.Second)),
+		trace.WithResource(resources),
 	)
 	return tracerProvider, nil
 }

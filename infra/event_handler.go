@@ -50,6 +50,7 @@ func (c genericEventHandler[T]) Handle(ctx context.Context, e any) error {
 
 type GroupEventHandler interface {
 	NewEvent() any
+	HandlerName() string
 	Handle(ctx context.Context, event any) error
 }
 
