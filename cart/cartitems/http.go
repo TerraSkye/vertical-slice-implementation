@@ -20,6 +20,7 @@ func MakeHttpHandler(r *mux.Router, bus *query.Bus) http.Handler {
 				model, err := queryHandler.Query(ctx, request.(*Query))
 
 				if err != nil {
+					//422 an eventbus error.
 					return nil, err
 				}
 

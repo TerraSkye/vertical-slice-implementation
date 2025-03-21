@@ -64,6 +64,3 @@ func (a *AggregateBase) AppendEvent(event cqrs.Event, options ...cqrs.EventOptio
 
 	a.events = append(a.events, envelope)
 }
-
-type Readmodel interface {
-}

@@ -25,11 +25,11 @@ func init() {
 					attribute.String("cqrs.aggregate_version", infra.MustExtractAggregateVersion(ctx)),
 					attribute.String("cqrs.application", os.Getenv("application")),
 					attribute.String("cqrs.causation_id", infra.MustExtractCausationId(ctx)),
-					attribute.String("cqrs.correlation_id", infra.MustExtractCorrelationId(ctx)),
+					attribute.String("cqrs.correlation_id", trace.SpanContextFromContext(ctx).TraceID().String()),
 					attribute.String("cqrs.command", "AddItem"),
 					attribute.String("cqrs.function", "AddItem"),
 					// Messaging attributes
-					attribute.String("messaging.conversation_id", infra.MustExtractCorrelationId(ctx)),
+					attribute.String("messaging.conversation_id", trace.SpanContextFromContext(ctx).TraceID().String()),
 					attribute.String("messaging.destination", "AddItem"),
 					attribute.String("messaging.destination_kind", "aggregate"),
 					attribute.String("messaging.message_id", infra.MustExtractCausationId(ctx)),

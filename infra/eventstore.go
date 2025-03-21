@@ -20,7 +20,7 @@ type MemoryStore struct {
 }
 
 func (m *MemoryStore) Save(ctx context.Context, events []cqrs.Envelope, originalVersion uint64) error {
-	ctx, span := m.tracer.Start(ctx, "MemoryStore.Save",
+	ctx, span := m.tracer.Start(ctx, "cqrs.event.store.write",
 		trace.WithAttributes(attribute.Int("event.count", len(events))),
 	)
 	defer span.End()
@@ -55,7 +55,7 @@ func (m *MemoryStore) Save(ctx context.Context, events []cqrs.Envelope, original
 
 	for _, event := range events {
 
-		eventCtx, eventSpan := m.tracer.Start(ctx, "MemoryStore.PublishEvent",
+		eventCtx, eventSpan := m.tracer.Start(ctx, " cqrs.event.store.publish",
 			trace.WithAttributes(
 				attribute.String("event.aggregate_id", event.Event.AggregateID().String()),
 				attribute.String("event.type", cqrs.TypeName(event.Event)),
@@ -130,7 +130,7 @@ func (m *MemoryStore) LoadFrom(ctx context.Context, id uuid.UUID, version int) (
 			}
 		}
 	}()
-
+	span.SetStatus(codes.Ok, "")
 	return out, nil
 }
 

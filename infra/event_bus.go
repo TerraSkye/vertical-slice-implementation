@@ -35,7 +35,7 @@ func NewEventBus() EventBus {
 // Dispatch sends the event to all subscribed handlers concurrently.
 func (b *eventBus) Dispatch(ctx context.Context, event cqrs.Event) error {
 	// Start a new tracing span, linking it to the incoming context
-	ctx, span := b.tracer.Start(ctx, "EventBus.Dispatch",
+	ctx, span := b.tracer.Start(ctx, "cqrs.event.bus.dispatch",
 		trace.WithAttributes(
 			attribute.String("event.aggregate_id", event.AggregateID().String()),
 			attribute.String("event.type", cqrs.TypeName(event)),
@@ -59,7 +59,7 @@ func (b *eventBus) Dispatch(ctx context.Context, event cqrs.Event) error {
 				defer wg.Done()
 				h.HandlerName()
 				// Create a new span for the handler, linking it to Dispatch
-				handlerCtx, handlerSpan := b.tracer.Start(ctx, "EventBus.HandleEvent",
+				handlerCtx, handlerSpan := b.tracer.Start(ctx, "cqrs.event.handler.process",
 					trace.WithAttributes(
 						attribute.String("handler.name", h.HandlerName()),
 						attribute.String("event.aggregate_id", event.AggregateID().String()),
@@ -89,7 +89,7 @@ func (b *eventBus) Dispatch(ctx context.Context, event cqrs.Event) error {
 					defer wg.Done()
 
 					// Create a new span for the handler, linking it to Dispatch
-					handlerCtx, handlerSpan := b.tracer.Start(ctx, "EventBus.HandleEvent",
+					handlerCtx, handlerSpan := b.tracer.Start(ctx, "cqrs.event.handler.process",
 						trace.WithAttributes(
 							attribute.String("handler.name", handlerName),
 							attribute.String("event.aggregate_id", event.AggregateID().String()),

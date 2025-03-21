@@ -2,72 +2,104 @@ package infra
 
 import (
 	"context"
+	"fmt"
 	"github.com/io-da/query"
+	"github.com/terraskye/vertical-slice-implementation/cqrs"
 )
 
-type QueryHandler[T query.Query, R Readmodel] interface {
+type GenericQueryHandler[T query.Query, R Readmodel] interface {
 	HandleQuery(ctx context.Context, qry T) (R, error)
 }
 
 type QueryIteratorProvider interface {
 	query.IteratorHandler
+	RegisterHandler(handler GenericQueryHandler[query.Query, Readmodel])
 }
+
 type QueryProvider interface {
 	query.Handler
+	RegisterHandler(handler GenericQueryHandler[query.Query, Readmodel])
 }
 
-//
-//type QueryIteratorProvider interface {
-//	query.IteratorHandler
-//}
-//type QueryProvider interface {
-//	query.Handler
-//}
-//
-//type genericQueryHandler[T query.Query, R any] struct {
-//}
-//
-//func NewQueryHandler[T query.Query, R any](bus *query.Bus) QueryHandler[T, R] {
-//	return &genericQueryHandler[T, R]{}
-//}
-//
-//func (r *genericQueryHandler[T, R]) Handle(ctx context.Context, query T) (R, error) {
-//
-//}
+type handler struct {
+	handlers map[string]GenericQueryHandler[query.Query, Readmodel]
+}
 
-//func (h *GenericQueryGateway[T, R]) Query(ctx context.Context, qry T) (Res[R], error) {
-//	result, err := h.bus.Query(qry)
-//
-//	var envelope Res[R]
-//
-//	if err != nil {
-//		return envelope, err
-//	}
-//
-//	if resultSize := len(result.All()); resultSize > 0 {
-//
-//		envelope = Res[R]{make([]*R, resultSize)}
-//		for i, entity := range result.All() {
-//			envelope.results[i] = entity.(*R)
-//		}
-//	}
-//
-//	return envelope, nil
-//}
+func NewQueryHandler() QueryProvider {
+	return &handler{
+		handlers: make(map[string]GenericQueryHandler[query.Query, Readmodel]),
+	}
+}
 
-//func (h *GenericQueryGateway[T, R]) IteratorQuery(ctx context.Context, qry T) (<-chan R, error) {
-//
-//	result, err := h.bus.IteratorQuery(qry)
-//
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	output := make(chan R)
-//
-//	for res := range result.Iterate() {
-//		output <- res
-//	}
-//
-//	return output, nil
-//}
+func (t *handler) RegisterHandler(handler GenericQueryHandler[query.Query, Readmodel]) {
+	var cmd query.Query
+	queryType := cqrs.TypeName(cmd)
+	// Store a type-erased function that preserves the correct signature
+	if _, ok := t.handlers[queryType]; ok {
+		panic("duplicate query handler" + queryType)
+	}
+	t.handlers[queryType] = handler
+}
+
+func (t *handler) Handle(ctx context.Context, qry query.Query, res *query.Result) error {
+	cqrs.TypeName(qry)
+
+	provider, exists := t.handlers[cqrs.TypeName(qry)]
+
+	if !exists {
+		return fmt.Errorf("unknown query type: %s", cqrs.TypeName(qry))
+	}
+
+	result, err := provider.HandleQuery(ctx, qry)
+
+	if err != nil {
+		return err
+	}
+
+	res.Add(result)
+	res.Done()
+
+	return nil
+}
+
+type iteratorHandler struct {
+	handlers map[string]GenericQueryHandler[query.Query, Readmodel]
+}
+
+func NewQueryIteratorHandler() QueryIteratorProvider {
+	return &iteratorHandler{
+		handlers: make(map[string]GenericQueryHandler[query.Query, Readmodel]),
+	}
+}
+
+func (t *iteratorHandler) RegisterHandler(handler GenericQueryHandler[query.Query, Readmodel]) {
+	var cmd query.Query
+	queryType := cqrs.TypeName(cmd)
+	// Store a type-erased function that preserves the correct signature
+	if _, ok := t.handlers[queryType]; ok {
+		panic("duplicate query handler" + queryType)
+	}
+	t.handlers[queryType] = handler
+}
+
+func (t *iteratorHandler) Handle(ctx context.Context, qry query.Query, res *query.IteratorResult) error {
+	cqrs.TypeName(qry)
+
+	provider, exists := t.handlers[cqrs.TypeName(qry)]
+
+	if !exists {
+		return fmt.Errorf("unknown query type: %s", cqrs.TypeName(qry))
+	}
+
+	result, err := provider.HandleQuery(ctx, qry)
+
+	if err != nil {
+		return err
+	}
+
+	res.Yield(result)
+
+	res.Done()
+
+	return nil
+}

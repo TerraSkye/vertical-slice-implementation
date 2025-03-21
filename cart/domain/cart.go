@@ -52,7 +52,10 @@ func (c *Cart) OnItemAdded(cmd *events.ItemAdded) {
 	c.quantity++
 }
 
-func (c *Cart) OnCartCreated(ev *events.CartCreated) {}
+func (c *Cart) OnCartCreated(ev *events.CartCreated) {
+	c.created = true
+
+}
 
 func (c *Cart) ArchiveItem(ctx context.Context, cmd *commands.ArchiveItem) error {
 	c.AppendEvent(&events.ItemArchived{

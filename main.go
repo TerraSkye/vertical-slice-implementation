@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/io-da/query"
+	"github.com/terraskye/vertical-slice-implementation/cart"
 	"github.com/terraskye/vertical-slice-implementation/cart/additem"
 	"github.com/terraskye/vertical-slice-implementation/cart/archiveitem"
 	"github.com/terraskye/vertical-slice-implementation/cart/cartitems"
@@ -35,9 +36,19 @@ func main() {
 
 	var queryBus *query.Bus
 
+	var queryProvider infra.QueryProvider
+	var queryIteratorProvider infra.QueryIteratorProvider
+
 	{
 		// the query bus
 		queryBus = query.NewBus()
+
+		queryProvider = infra.NewQueryHandler()
+		queryIteratorProvider = infra.NewQueryIteratorHandler()
+
+		queryBus.Handlers(queryProvider)
+		queryBus.InitializeIteratorHandlers(queryIteratorProvider)
+
 	}
 
 	var commandBus infra.CommandBus
@@ -45,7 +56,11 @@ func main() {
 	{
 		commandBus = infra.NewCommandBus(20)
 		//a command handler per aggregate type?
-		commandBus.AddHandler(infra.NewCommandHandler(store).Handle)
+		commandBus.AddHandler(infra.NewCommandHandler(store,
+			cart.AggregateForCommand,
+			cart.DispatchEvent,
+			cart.DispatchCommand,
+		).Handle)
 	}
 
 	{
@@ -87,11 +102,28 @@ func main() {
 			infra.NewGroupEventHandler(projector.OnItemRemoved),
 		))
 
+		eventBus.SubscribeToGroup(infra.NewEventGroupProcessor("cartwithproducts3",
+			infra.NewGroupEventHandler(projector.OnItemAdded),
+			infra.NewGroupEventHandler(projector.OnItemArchived),
+			infra.NewGroupEventHandler(projector.OnCartCreated),
+			infra.NewGroupEventHandler(projector.OnItemArchived),
+			infra.NewGroupEventHandler(projector.OnItemRemoved),
+		))
+
+		eventBus.SubscribeToGroup(infra.NewEventGroupProcessor("cartwithproducts4",
+			infra.NewGroupEventHandler(projector.OnItemAdded),
+			infra.NewGroupEventHandler(projector.OnItemArchived),
+			infra.NewGroupEventHandler(projector.OnCartCreated),
+			infra.NewGroupEventHandler(projector.OnItemArchived),
+			infra.NewGroupEventHandler(projector.OnItemRemoved),
+		))
+
 		//eventBus.Subscribe()
 
 		//TODO register this onto the BUS
 		queryHandler := cartwithproducts.NewQueryHandler()
-		_ = queryHandler
+
+		queryProvider.RegisterHandler(queryHandler)
 
 	}
 

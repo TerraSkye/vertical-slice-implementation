@@ -5,7 +5,9 @@ import (
 	"github.com/terraskye/vertical-slice-implementation/cqrs"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+	"os"
 	"sync"
 )
 
@@ -41,12 +43,23 @@ func (b *commandBus) Send(ctx context.Context, cmd cqrs.Command) error {
 	responseCh := make(chan error, 1)
 
 	// Start tracing
-	ctx, span := b.tracer.Start(ctx, "CommandBus.Send",
+	ctx, span := b.tracer.Start(ctx, "cqrs.command.send",
 		trace.WithAttributes(
-			attribute.String("command.type", cqrs.TypeName(cmd)),
-			attribute.String("aggregate.id", cmd.AggregateID().String()),
+
+			attribute.String("cqrs.aggregate_id", cmd.AggregateID().String()),
+			attribute.String("cqrs.application", os.Getenv("application")),
+			attribute.String("cqrs.causation_id", MustExtractCausationId(ctx)),
+			attribute.String("cqrs.correlation_id", trace.SpanContextFromContext(ctx).TraceID().String()),
+			attribute.String("cqrs.command", cqrs.TypeName(cmd)),
+			// Messaging attributes
+			attribute.String("messaging.conversation_id", trace.SpanContextFromContext(ctx).TraceID().String()),
+			attribute.String("messaging.destination_kind", "aggregate"),
+			attribute.String("messaging.message_id", MustExtractCausationId(ctx)),
+			attribute.String("messaging.operation", "publish"),
+			attribute.String("messaging.system", "cqrs"),
 		),
 	)
+
 	defer span.End()
 
 	// Enqueue the command with the response channel
@@ -55,11 +68,22 @@ func (b *commandBus) Send(ctx context.Context, cmd cqrs.Command) error {
 		// Wait for processing result
 		select {
 		case err := <-responseCh:
+			if err != nil {
+				span.RecordError(err)
+				span.SetStatus(codes.Error, err.Error())
+			} else {
+				span.SetStatus(codes.Ok, "")
+			}
 			return err // Return processing error (or nil if success)
 		case <-ctx.Done():
+			span.RecordError(ctx.Err())
+			span.SetStatus(codes.Error, ctx.Err().Error())
 			return ctx.Err() // Context timeout/cancellation
 		}
+
 	case <-ctx.Done():
+		span.RecordError(ctx.Err())
+		span.SetStatus(codes.Error, ctx.Err().Error())
 		return ctx.Err() // Context timeout before enqueueing
 	}
 }
@@ -74,7 +98,6 @@ func (b *commandBus) start() {
 	go func() {
 		for cmdWithCtx := range b.queue {
 			for _, handler := range b.handlers {
-
 				go func(handlerFunc func(ctx context.Context, command cqrs.Command) error) {
 					err := handlerFunc(cmdWithCtx.Ctx, cmdWithCtx.Command)
 					if err != nil {

@@ -23,6 +23,7 @@ func MakeHttpHandler(r *mux.Router, s Service) http.Handler {
 			decodeCreateRequest, // 400 - 404
 			infra.NoContent(),
 			kithttp.ServerErrorEncoder(func(ctx context.Context, err error, w http.ResponseWriter) {
+				w.WriteHeader(http.StatusBadRequest)
 				// errors that can happen
 			}),
 		),
